@@ -1,0 +1,21 @@
+# Raw and derived data are large and environment-specific; track them
+# separately (e.g. cloud storage) rather than in git.
+data/
+outputs/
+
+# keep papers and articles out
+paper/
+
+# keep claude files out 
+.claude
+
+# Local OSM/network artifacts
+*.osrm*
+*.pbf
+*.graphml
+
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+

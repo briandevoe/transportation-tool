@@ -1,0 +1,16 @@
+pandas
+geopandas
+shapely
+pyproj
+requests
+scipy
+pyyaml
+osmnx
+igraph
+statsmodels
+pyrosm
+pyarrow
+# pyrosm pulls in protobuf; pin below the range that conflicts with
+# google-api-core/googleapis-common-protos/proto-plus if those are also
+# installed in this environment (they are, for the Gmail/Calendar/Drive tools)
+protobuf>=3.20.2,<7.0.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5
