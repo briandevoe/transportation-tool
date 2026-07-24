@@ -104,7 +104,7 @@ def get_state_bbox(state_fips):
     """Reuse the already-downloaded layer1 tract file for the state's extent
     instead of hand-maintaining per-state bounding boxes. CRS is EPSG:4269
     (NAD83), numerically close enough to WGS84 for a buffered bbox filter."""
-    tract_path = REPO_ROOT / "data" / "layer1_geography" / "2020" / "tract" / f"tl_2020_{state_fips}_tract.zip"
+    tract_path = REPO_ROOT / "data" / "layer1_geography" / "raw" / "2020" / "tract" / f"tl_2020_{state_fips}_tract.zip"
     if not tract_path.exists():
         raise SystemExit(f"Missing layer1 tract file for state FIPS {state_fips}: {tract_path} (run layer1 first)")
     return gpd.read_file(f"zip://{tract_path}").total_bounds  # (minx, miny, maxx, maxy)

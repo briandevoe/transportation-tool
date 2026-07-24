@@ -42,7 +42,7 @@ Usage:
 
 Note: any state without a layer3 origins file yet is silently skipped (with
 a printed warning) rather than aborting the run -- run
-layer3_population/01+02 (and reference/03_prepare_redlining.py) for a state
+layer3_population/01+02 (and layer5_reference/03_prepare_redlining.py) for a state
 first if it's missing from the output.
 
 Known gap: Connecticut (state FIPS 09) drops out entirely (0 origins survive

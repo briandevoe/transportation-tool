@@ -2,7 +2,7 @@
 Reference data: assign each census tract its historical HOLC redlining grade
 (A/B/C/D), via spatial overlay -- NOT a GEOID join, unlike COI/RUCA.
 
-Source: data/reference/redlining/mappinginequality.json (Mapping Inequality
+Source: data/layer5_reference/redlining/mappinginequality.json (Mapping Inequality
 project, HOLC "security maps"), confirmed live: 10,154 polygon features
 nationally with a `grade` property (A/B/C/D) and `residential`/`commercial`/
 `industrial` boolean flags -- filtered here to residential==True, since grade
@@ -31,8 +31,8 @@ import geopandas as gpd
 import pandas as pd
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-REDLINING_PATH = REPO_ROOT / "data" / "reference" / "redlining" / "mappinginequality.json"
-OUT_DIR = REPO_ROOT / "data" / "reference" / "redlining" / "processed"
+REDLINING_PATH = REPO_ROOT / "data" / "layer5_reference" / "redlining" / "mappinginequality.json"
+OUT_DIR = REPO_ROOT / "data" / "layer5_reference" / "redlining" / "processed"
 AREA_CRS = "EPSG:5070"
 
 # USPS abbreviation by state FIPS -- mappinginequality.json's "state" property
@@ -61,7 +61,7 @@ def main():
     if usps is None:
         raise SystemExit(f"No USPS abbreviation mapping for state FIPS {state_fips}")
 
-    tract_path = REPO_ROOT / "data" / "layer1_geography" / "2020" / "tract" / f"tl_2020_{state_fips}_tract.zip"
+    tract_path = REPO_ROOT / "data" / "layer1_geography" / "raw" / "2020" / "tract" / f"tl_2020_{state_fips}_tract.zip"
     if not tract_path.exists():
         raise SystemExit(f"Missing layer1 tract file for state FIPS {state_fips}: {tract_path} (run layer1 first)")
 

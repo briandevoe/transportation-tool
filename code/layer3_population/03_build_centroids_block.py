@@ -13,7 +13,7 @@ null, since the dimension genuinely doesn't apply to this source) and
 
 Block locations: TIGER block files carry the same INTPTLAT20/INTPTLON20
 internal-point convention as tracts/block groups -- already on disk from
-layer1 (data/layer1_geography/2020/block/), same pattern as script 02's use
+layer1 (data/layer1_geography/raw/2020/block/), same pattern as script 02's use
 of the block-group file for TIGER internal points (no Gazetteer equivalent
 exists at block level anyway).
 
@@ -46,7 +46,7 @@ DECENNIAL_YEAR = "2020"  # only vintage PL 94-171 supports today
 
 
 def get_block_internal_points(state_fips):
-    matches = glob.glob(str(REPO_ROOT / "data" / "layer1_geography" / "2020" / "block" / f"tl_2020_{state_fips}*_tabblock20.zip"))
+    matches = glob.glob(str(REPO_ROOT / "data" / "layer1_geography" / "raw" / "2020" / "block" / f"tl_2020_{state_fips}*_tabblock20.zip"))
     if not matches:
         raise SystemExit(f"Missing layer1 block file for state FIPS {state_fips} (run layer1 first)")
     gdf = gpd.read_file(f"zip://{matches[0]}")

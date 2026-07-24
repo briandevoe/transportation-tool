@@ -30,7 +30,7 @@ script per data source, is the whole job of this rewrite.
 
 | Layer | Examples | Status |
 |---|---|---|
-| **Geography** | Census tracts, block groups, blocks, ZCTAs, congressional districts | Starting now — see `code/layer1_geography/` |
+| **Geography** | Census tracts, block groups, blocks, ZCTAs, counties, congressional districts, school districts, urban areas, tribal areas | Starting now — see `code/layer1_geography/` |
 | **Travel network** | Roads, sidewalks, bike lanes, buses, trails | Not started here (roads exist in `../transportation2`) |
 | **Population** | Total, age groups, disability status, race/ethnicity | Not started here (partial version in `../transportation2`) |
 | **Destinations** | Schools, hospitals, grocery, pharmacies, and more | Not started here (pattern proven in `../transportation2`) |
@@ -72,15 +72,23 @@ code/
   layer2_network/        # road/sidewalk/bike/transit network builders
   layer3_population/     # ACS pulls by demographic group
   layer4_destination/    # per-destination-type prep scripts
-  (a shared lib/ for the standardized schemas + the routing/accessibility
-   engine will land once there's more than one layer script to share it)
+  layer5_reference/       # COI/RUCA/redlining/Opportunity Atlas -- external
+                          # datasets the engine's output joins to, not
+                          # something the engine computes itself
+  lib/                    # shared schemas + the routing/accessibility engine
 
 data/
   layer1_geography/
-    2020/                # vintage-specific subfolder -- one per Census vintage
+    raw/                  # untouched TIGER/Line downloads
+      2020/                # vintage-specific subfolder -- one per Census vintage
+      cd118/                # congressional districts are vintaged by congress
+                            # number instead, in their own cd<congress>/ folder
+    processed/            # standardized output (GEOID, geometry, geography_type,
+                          # vintage, state_fips, name, land/water area)
   layer2_network/
   layer3_population/
   layer4_destination/
+  layer5_reference/
 
 outputs/
   (travel times, accessibility metrics, comparisons -- populated once the
@@ -92,7 +100,11 @@ docs/
 
 ## Current focus
 
-Layer 1 (Geography), 2020 vintage only: pull tract, block group, block, and
-ZCTA boundaries from the Census Bureau's TIGER/Line data for all states, into
-`data/layer1_geography/2020/`. See `docs/plan.md` for the full development
-plan and todo list, broken down by layer.
+Layer 1 (Geography): pull tract, block group, block, ZCTA, county, and school
+district boundaries from the Census Bureau's TIGER/Line data for all states,
+for both the 2010 and 2020 vintages, into `data/layer1_geography/raw/<year>/`
+(`01_download_tiger.py`) -- plus congressional districts, which are vintaged
+by congress number instead of census year and so get their own script
+(`02_download_congressional_dist.py`) and `cd<congress>/` output folders. See
+`docs/plan.md` for the full development plan and todo list, broken down by
+layer.

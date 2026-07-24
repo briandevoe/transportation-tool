@@ -6,12 +6,14 @@ revisit as each layer gets built.
 
 ## Layer notes
 
-**Geography**: Tracts, block groups, blocks, ZCTAs, and congressional
-districts are all published as TIGER/Line shapefiles by the Census
-Bureau — see the Layer 1 section of the main README for what's being built
-first. Congressional districts redraw every redistricting cycle (~10 years,
-sometimes off-cycle via litigation) and need an explicit vintage field from
-day one.
+**Geography**: Tracts, block groups, blocks, ZCTAs, counties, congressional
+districts, and school districts are all published as TIGER/Line shapefiles by
+the Census Bureau — see the Layer 1 section of the main README for what's
+being built first. Congressional districts redraw every redistricting cycle
+(~10 years, sometimes off-cycle via litigation) and are vintaged by **congress
+number**, not census year, unlike every other geography type here — need an
+explicit vintage field from day one, and it can't reuse the same
+year-keyed config the rest of Layer 1 uses.
 
 **Travel network**: the hardest layer, no Census-equivalent single source.
 

@@ -2,7 +2,7 @@
 Reference data: standardize 2020 RUCA (Rural-Urban Commuting Area) codes
 into a small GEOID-keyed lookup table.
 
-Source: data/reference/ruca/RUCA-codes-2020-tract.csv -- one row per tract,
+Source: data/layer5_reference/ruca/RUCA-codes-2020-tract.csv -- one row per tract,
 TractFIPS20 is a direct 2020 census tract GEOID join key.
 
 Usage:
@@ -13,8 +13,8 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-SOURCE_CSV = REPO_ROOT / "data" / "reference" / "ruca" / "RUCA-codes-2020-tract.csv"
-OUT_DIR = REPO_ROOT / "data" / "reference" / "ruca" / "processed"
+SOURCE_CSV = REPO_ROOT / "data" / "layer5_reference" / "ruca" / "RUCA-codes-2020-tract.csv"
+OUT_DIR = REPO_ROOT / "data" / "layer5_reference" / "ruca" / "processed"
 
 COLUMN_MAP = {
     "TractFIPS20": "GEOID",

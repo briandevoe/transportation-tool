@@ -2,7 +2,7 @@
 Reference data: standardize the Child Opportunity Index (COI 3.0-2021) into
 a small GEOID-keyed lookup table.
 
-Source: data/reference/coi/2020 census tracts, overall index and domains
+Source: data/layer5_reference/coi/2020 census tracts, overall index and domains
 (COI 3.0-2021).zip -> data.csv. One row per (geoid20, year) covering
 2012-2021 (confirmed live) -- this script keeps one year, default the most
 recent (2021).
@@ -21,7 +21,7 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-DATA_DIR = REPO_ROOT / "data" / "reference" / "coi"
+DATA_DIR = REPO_ROOT / "data" / "layer5_reference" / "coi"
 OUT_DIR = DATA_DIR / "processed"
 
 SOURCE_ZIP = "2020 census tracts, overall index and domains (COI 3.0-2021).zip"

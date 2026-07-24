@@ -1,22 +1,22 @@
-"""Attach the processed reference datasets (code/reference/*.py output) onto
-any GEOID-keyed DataFrame -- used by both code/analysis scripts so a
+"""Attach the processed reference datasets (code/layer5_reference/*.py output)
+onto any GEOID-keyed DataFrame -- used by both code/analysis scripts so a
 groupby on COI level / RUCA code / redlining grade works identically
 regardless of which distance method produced the metrics.
 
 All three are left-joins: a tract with no COI/RUCA/redlining match keeps its
 row with null reference columns rather than being dropped. COI and RUCA are
 single national lookup files; redlining is processed per-state (see
-code/reference/03_prepare_redlining.py), so its loader globs whatever states
-have been run so far rather than requiring a fixed list.
+code/layer5_reference/03_prepare_redlining.py), so its loader globs whatever
+states have been run so far rather than requiring a fixed list.
 """
 from pathlib import Path
 
 import pandas as pd
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-COI_DIR = REPO_ROOT / "data" / "reference" / "coi" / "processed"
-RUCA_DIR = REPO_ROOT / "data" / "reference" / "ruca" / "processed"
-REDLINING_DIR = REPO_ROOT / "data" / "reference" / "redlining" / "processed"
+COI_DIR = REPO_ROOT / "data" / "layer5_reference" / "coi" / "processed"
+RUCA_DIR = REPO_ROOT / "data" / "layer5_reference" / "ruca" / "processed"
+REDLINING_DIR = REPO_ROOT / "data" / "layer5_reference" / "redlining" / "processed"
 
 REFERENCE_COLUMNS = [
     "coi_level_nat", "coi_score_nat", "coi_vintage",

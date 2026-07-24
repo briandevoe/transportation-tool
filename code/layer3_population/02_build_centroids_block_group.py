@@ -29,7 +29,7 @@ internal points -- confirmed live that this file no longer exists (checked
 every Gazetteer vintage 2015-2024; block group is not among the published
 geographies at any of them). Uses TIGER block-group INTPTLAT/INTPTLON
 instead -- same internal-point convention, already on disk from layer1
-(data/layer1_geography/2020/bg/).
+(data/layer1_geography/raw/2020/bg/).
 
 A tract with zero population of some slice gets a null lat/lon, not a
 fallback point -- the weighting is genuinely undefined (0/0), and a fake
@@ -61,7 +61,7 @@ OUT_DIR = REPO_ROOT / "data" / "layer3_population" / "block_group_weighted" / "p
 
 
 def get_bg_internal_points(state_fips):
-    bg_path = REPO_ROOT / "data" / "layer1_geography" / "2020" / "bg" / f"tl_2020_{state_fips}_bg.zip"
+    bg_path = REPO_ROOT / "data" / "layer1_geography" / "raw" / "2020" / "bg" / f"tl_2020_{state_fips}_bg.zip"
     if not bg_path.exists():
         raise SystemExit(f"Missing layer1 block-group file for state FIPS {state_fips}: {bg_path} (run layer1 first)")
     gdf = gpd.read_file(f"zip://{bg_path}")
