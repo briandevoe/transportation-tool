@@ -20,12 +20,22 @@ exists at block level anyway).
 A tract with zero population of some race_ethnicity gets a null lat/lon, not
 a fallback point -- same reasoning as script 02.
 
+--k: how many population-weighted centroids to compute per (tract,
+race_ethnicity) group instead of always collapsing to one (see
+lib/weighted_centroids.py). Default 1 reproduces the original single-
+centroid output exactly. Unlike script 02, there's no separate authoritative
+population total to rescale against here -- the block-level sum IS the
+population figure, so each centroid's population is used directly. k>1
+output is written to a separate file (origins_2020_k<k>.parquet) so it never
+collides with or silently replaces the k=1 default.
+
 Requires a free Census API key: https://api.census.gov/data/key_signup.html
 Set via the CENSUS_API_KEY env var, or pass --api-key.
 
 Usage:
     python 03_build_centroids_block.py
     python 03_build_centroids_block.py --state-fips 36
+    python 03_build_centroids_block.py --k 2
 """
 import argparse
 import glob
@@ -39,6 +49,7 @@ from lib.decennial_client import fetch_block_race_totals
 from lib.acs_client import get_api_key
 from lib.population_schema import validate_population_origins
 from lib.race_ethnicity_schemes import DECENNIAL_WEIGHT_SCHEMES, get_decennial_weight_scheme
+from lib.weighted_centroids import weighted_centroid_clusters
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 OUT_DIR = REPO_ROOT / "data" / "layer3_population" / "block_weighted" / "processed"
@@ -56,27 +67,13 @@ def get_block_internal_points(state_fips):
     return points[["GEOID", "lat", "lon"]]
 
 
-def weighted_centroids(block_population, block_points):
-    df = block_population.merge(block_points, on="GEOID", how="inner")
-    df["GEOID_tract"] = df["GEOID"].str[:11]  # state(2) + county(3) + tract(6)
-    df["_wx"] = df["population"] * df["lon"]
-    df["_wy"] = df["population"] * df["lat"]
-
-    grouped = df.groupby(["GEOID_tract", "race_ethnicity"], as_index=False).agg(
-        _wx=("_wx", "sum"), _wy=("_wy", "sum"), population=("population", "sum"),
-    )
-    grouped["lon"] = grouped["_wx"] / grouped["population"]
-    grouped["lat"] = grouped["_wy"] / grouped["population"]
-    grouped.loc[grouped["population"] == 0, ["lat", "lon"]] = None  # 0/0: undefined, not a fallback point
-
-    return grouped.rename(columns={"GEOID_tract": "GEOID"})[["GEOID", "race_ethnicity", "population", "lat", "lon"]]
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--state-fips", default="25", help="State FIPS code (default: 25, Massachusetts)")
-    parser.add_argument("--race-scheme", default="simplified_5", choices=list(DECENNIAL_WEIGHT_SCHEMES),
-                         help="Race/ethnicity category scheme (default: simplified_5)")
+    parser.add_argument("--race-scheme", default="coi_5", choices=list(DECENNIAL_WEIGHT_SCHEMES),
+                         help="Race/ethnicity category scheme (default: coi_5, matching COI's own breakdown)")
+    parser.add_argument("--k", type=int, default=1,
+                         help="Population-weighted centroids per (tract, race_ethnicity) group (default: 1)")
     parser.add_argument("--api-key", default=None, help="Census API key (default: CENSUS_API_KEY env var)")
     args = parser.parse_args()
 
@@ -84,9 +81,14 @@ def main():
     state_fips = args.state_fips
     weight_scheme = get_decennial_weight_scheme(args.race_scheme)
 
-    out_path = OUT_DIR / state_fips / f"origins_{DECENNIAL_YEAR}.parquet"
+    # Filename must include both the race scheme and k -- see
+    # 02_build_centroids_block_group.py for why. Defaults keep the original
+    # filename so existing files/callers aren't disturbed.
+    scheme_suffix = "" if args.race_scheme == "coi_5" else f"_{args.race_scheme}"
+    k_suffix = "" if args.k == 1 else f"_k{args.k}"
+    out_path = OUT_DIR / state_fips / f"origins_{DECENNIAL_YEAR}{scheme_suffix}{k_suffix}.parquet"
     if out_path.exists():
-        print(f"[{state_fips}] {DECENNIAL_YEAR} — already built, skipping.")
+        print(f"[{state_fips}] {DECENNIAL_YEAR} {args.race_scheme} k={args.k} — already built, skipping.")
         return
 
     print(f"[{state_fips}] Fetching 2020 Decennial (PL 94-171) block-level race population...")
@@ -94,7 +96,7 @@ def main():
     block_points = get_block_internal_points(state_fips)
 
     print("  Computing population-weighted centroids...")
-    df = weighted_centroids(block_population, block_points)
+    df = weighted_centroid_clusters(block_population, block_points, ["race_ethnicity"], k=args.k)
 
     df["geography_level"] = "tract"
     df["state_fips"] = state_fips

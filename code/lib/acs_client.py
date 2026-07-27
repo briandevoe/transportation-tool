@@ -18,6 +18,7 @@ import pandas as pd
 import requests
 
 from lib.acs_characteristics import variable_codes
+from lib.ct_geoid_crosswalk import fix_ct_geoids
 
 CENSUS_MAX_VARS_PER_REQUEST = 50  # Census API hard limit on variables per request
 
@@ -80,6 +81,7 @@ def fetch_population(state_fips, year, geography, race_scheme, characteristics, 
     for v in all_vars:
         df[v] = pd.to_numeric(df[v], errors="coerce")
     df["GEOID"] = df[geo["geoid_cols"]].agg("".join, axis=1)
+    df = fix_ct_geoids(df)  # ACS 2022+ uses CT's new planning-region county codes; Layer 1 geometry doesn't
 
     long_rows = [
         {"GEOID": geoid, "race_ethnicity": race_ethnicity, "characteristic": characteristic, "population": pop}
@@ -107,6 +109,7 @@ def fetch_race_totals(state_fips, year, geography, weight_scheme, api_key):
     for v in all_vars:
         df[v] = pd.to_numeric(df[v], errors="coerce")
     df["GEOID"] = df[geo["geoid_cols"]].agg("".join, axis=1)
+    df = fix_ct_geoids(df)  # ACS 2022+ uses CT's new planning-region county codes; Layer 1 geometry doesn't
 
     long_rows = [
         {"GEOID": geoid, "race_ethnicity": race_ethnicity, "population": pop}

@@ -34,6 +34,10 @@ COLUMN_MAP = {
     "r_COI_stt": "coi_score_stt",
     "c5_COI_met": "coi_level_met",
     "r_COI_met": "coi_score_met",
+    "metro_fips": "metro_fips",
+    "metro_name": "metro_name",
+    "metro_type": "metro_type",
+    "in100": "in_top100_metro",
 }
 
 
@@ -62,6 +66,15 @@ def main():
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["GEOID"] = df["GEOID"].astype("string")
     df["coi_vintage"] = str(args.year)
+
+    # metro_fips/metro_name/metro_type: rural tracts genuinely have no metro
+    # (not a missing-data problem) -- keep as real nulls rather than "N/A" strings.
+    df["metro_fips"] = df["metro_fips"].astype("string")
+    df["metro_name"] = df["metro_name"].astype("string")
+    df["metro_type"] = df["metro_type"].astype("string")
+    # in100 arrives as 1.0/0.0/NaN (float) -- NaN means "not evaluated for
+    # top-100 status" (same rural tracts with no metro), not "not in the top 100".
+    df["in_top100_metro"] = df["in_top100_metro"].astype("boolean")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / f"coi_tract_{args.year}.parquet"

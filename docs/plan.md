@@ -1,5 +1,39 @@
 # Development plan
 
+## Motivation (recorded 2026-07-24)
+
+COI measures whether a neighborhood has resources; it deliberately does not
+measure whether a specific person can actually reach them (COI's own
+reasoning for staying out of this, applied to race rather than access, is in
+`docs/COI 3.0 Technical Documentation 20250724.pdf` p.22). COI leadership has
+named transportation (along with crime and remote sensing) as a category
+missing from COI's current indicator set. This project's goal is a
+transportation equity measure/index -- population-weighted, demographic-
+sliced, routed accessibility -- built using this repo's existing five-layer
+architecture as-is.
+
+Explicit decisions, so they don't get re-litigated by accident later:
+- **No restructuring the five-layer architecture** to fit any single
+  downstream consumer's shape, including COI's own indicator-construction
+  pipeline (block-level, z-scored, nationally/state/metro-normed). COI
+  consumes this tool's output as Layer 5 reference data (a GEOID join),
+  the same relationship RUCA/redlining already have -- it does not shape
+  how Layers 1-4 or the core engine work.
+- **Greenspace/NatureScore-replacement work is explicitly out of scope for
+  now.** Only the transportation measure is active work.
+- The Conveyal Analysis / tool-landscape comparison (item below) matters
+  more than it did before, not less: if this measure is meant to be used in
+  actual COI-adjacent research rather than stay a personal exploration, "we
+  built this ourselves" needs a defensible answer to "why not R5."
+- Per-layer status snapshot as of this date: Layer 1 (geography) is the most
+  complete and verified; Layer 2 (network) and Layer 3 (population) have
+  real depth but only Massachusetts is built end-to-end; Layer 4
+  (destinations) has schools/grocery/hospitals; the core engine (routing +
+  scoring) exists only as code embedded in `code/analysis/*` scripts, not a
+  reusable API, and has only ever been run against Massachusetts. No
+  accessibility number produced by this pipeline has yet been used to
+  answer a real research question end-to-end.
+
 ## Architecture decisions (settle these before/alongside layer work)
 
 - [ ] Lock the standardized schema each layer must output (geography, population,
@@ -18,9 +52,50 @@
 - [ ] Pick a license for the repo, especially given eventual outside-researcher
       use; confirm r5r's license before depending on it; note OSM data itself
       is ODbL (share-alike on redistributed derived datasets, not just code)
-- [ ] Write up the tool landscape comparison (Conveyal Analysis, Urban
+- [x] Write up the tool landscape comparison (Conveyal Analysis, Urban
       Institute's Spatial Equity Data Tool, Spatial Access of America) --
-      promised as a follow-up in the COI proposal thread
+      promised as a follow-up in the COI proposal thread. Findings (recorded
+      2026-07-26):
+  - **Conveyal Analysis / R5 / r5py**: no native demographic-subgroup
+    accessibility engine anywhere in this stack. Conveyal's hosted product
+    supports equity analysis only by having the user upload one population
+    layer per demographic category and run a separate job per layer -- not a
+    built-in race x age x disability model. r5py (the Python routing wrapper,
+    MIT/GPL, actively maintained by Univ. of Helsinki's Digital Geography
+    Lab) has no accessibility function at all, only travel-time
+    matrices/isochrones/itineraries -- any accessibility or demographic
+    logic is 100% custom code on top, same burden this repo already carries.
+    Conveyal's internal spatial unit is also a Web Mercator grid, not census
+    geography -- polygon data gets areally dispersed into grid cells, not
+    GEOID-native by default. Real, defensible future option though: R5/r5py
+    is free, self-hostable, and far more battle-tested for GTFS-based
+    transit routing (modified RAPTOR) than a hand-rolled router would be --
+    a plausible Layer 2 swap-in once transit enters scope, without touching
+    Layers 1/3/4 or the GEOID-keyed output contract. Decided 2026-07-26:
+    continue with the custom network layer for now; revisit r5py
+    specifically for Layer 2 in a more mature version of the tool.
+  - **Urban Institute's Spatial Equity Data Tool (SEDT)**: does not route at
+    all. Core methodology (v1 2020, v2 2021, public API ~2024, GPLv3, still
+    active) is a siting/representativeness disparity score -- does the
+    demographic composition of uploaded point locations match the
+    population's demographic composition -- structurally closer to COI than
+    to a travel-time tool. A new pilot "access measure" (r5r-based
+    walk/drive sheds) is architecturally similar to this project's approach
+    but is limited to a Maryland/Virginia/DC pilot with no confirmed
+    national timeline.
+  - **Spatial Access of America** (Purdue, *Scientific Data* July 2025,
+    unaffiliated with Urban Institute): the closest methodological peer --
+    real OSRM routing, multiple accessibility metrics (E2SFCA, gravity,
+    cumulative-opportunity), demographic-sliced job/POI access. But it's a
+    static published dataset + viz tool, not an interactive/extensible
+    platform, covers only the 50 largest urban areas, and has no transit.
+  - **Net**: no existing tool combines real network routing + first-class
+    demographic-subgroup slicing + flexible destination types + GEOID-native
+    output. Conveyal has routing + flexible destinations but not
+    demographic/GEOID-native output; SEDT has demographic/GEOID but no
+    routing; Spatial Access of America has routing + demographic slicing but
+    is static, non-transit, and limited to 50 metros. This is the
+    defensible answer to "why not just use an existing tool."
 
 ## Layer 1: Geography
 
@@ -101,8 +176,8 @@ computes. Lives in `code/layer5_reference/` / `data/layer5_reference/`.
 
 - [x] COI (Child Opportunity Index) -- direct GEOID join
       (`01_prepare_coi.py`)
-- [x] RUCA -- direct GEOID join at the tract level
-      (`02_prepare_ruca.py`); still needs wiring into Layer 1 itself, see above
+- [x] RUCA -- direct GEOID join at the tract level (`02_prepare_ruca.py`).
+      Deliberately kept Layer-5-only, not wired into Layer 1's own schema
 - [x] Redlining (HOLC grades) -- spatial overlay, not a GEOID join, processed
       per-state (`03_prepare_redlining.py`)
 - [ ] Opportunity Atlas -- not started
@@ -127,17 +202,150 @@ computes. Lives in `code/layer5_reference/` / `data/layer5_reference/`.
 
 ## Layer 3: Population
 
-- [ ] Port ACS download/reshape logic from `../transportation2`
-      (total/age/race)
-- [ ] Add disability status stratification (new ACS table, same pattern)
-- [ ] Pull decennial block-level race/ethnicity counts -- the finest
-      resolution Census publishes race at, and what makes within-tract
-      demographic weighting possible (ACS itself bottoms out at block group)
-- [ ] Compute population-weighted centroids: tract geographic center by
-      default, plus race/ethnicity-specific centroids using block-level
-      weighting
+- [x] Port ACS download/reshape logic from `../transportation2`
+      (`01_download_acs_population.py`, `lib/acs_client.py`) -- built for
+      total/age/race, swappable race scheme (`lib/race_ethnicity_schemes.py`)
+- [x] Add a second race/ethnicity scheme, `detailed_7` -- the general
+      7-group standard used broadly in child-equity research, splitting
+      `simplified_5`'s "other_nh" bucket into aian_nh/nhpi_nh/
+      other_multiracial_nh. Initially assumed (incorrectly, see below) to be
+      COI's own breakdown; kept anyway since it's a real, separately-used
+      standard -- specifically, this is the breakdown NCES's Common Core of
+      Data (CCD) uses for school-level race/ethnicity reporting, relevant to
+      the education-domain / school-level work this project may draw on in
+      Layer 4. Selectable via the existing `--race-scheme` flag on all three
+      layer3_population scripts, no script logic changes needed -- schemes
+      are just dicts. Along the way, fixed a real gap: none of the three
+      scripts' output filenames included the race scheme, so a `detailed_7`
+      run for a state that already had `simplified_5` output would have
+      silently skipped or overwritten it -- same fix pattern as the `--k`
+      filename suffix, default scheme keeps the original filename
+- [x] Add a third scheme, `coi_5`, matching COI's *actual* race/ethnicity
+      breakdown -- confirmed directly from `docs/COI 3.0 Technical
+      Documentation 20250724.pdf` (p.46: "We compute Ij separately for
+      Asian, Black, Hispanic, American Indian/Alaska Native and non-Hispanic
+      White children") that the neighborhood-level COI index uses 5 groups.
+      `coi_5` merges Asian with Native Hawaiian/Pacific Islander into one
+      "asian" group, keeps AIAN as its own group, and -- unlike
+      `simplified_5`/`detailed_7` -- doesn't fold "Some Other Race"/"Two or
+      More Races" into an "other" bucket at all; COI simply excludes them
+      from its race-specific breakdown. **`coi_5` is now the default**
+      (`ACTIVE_SCHEME_NAME` and every script's `--race-scheme` default) since
+      COI is expected to be this project's most-used reference layer --
+      existing `simplified_5` output (51 states across `acs` and
+      `block_group_weighted`, 1 state for `block_weighted`) was renamed with
+      an explicit `_simplified_5` suffix rather than deleted, freeing the
+      bare filename for the new `coi_5` default; both coexist under distinct
+      filenames going forward
+- [x] **Connecticut GEOID-mismatch bug -- fixed**, the same way COI fixed it
+      (Appendix 6, p.87): tract/block-group boundaries never changed in the
+      2022 planning-region switch, only the county-FIPS segment of the
+      GEOID did, so matching the trailing 6-digit tract code alone
+      (ignoring the county prefix) uniquely crosswalks 879 of 883
+      Connecticut tracts. Built the crosswalk ourselves
+      (`code/layer3_population/build_ct_geoid_crosswalk.py`, a one-time
+      script, not part of the regular pipeline) directly from this repo's
+      own Layer 1 tract list plus one live ACS query -- landed on the exact
+      same 4 ambiguous tracts (reused "990000"/"990100" placeholder codes)
+      COI found; reused COI's own published resolution (Table A6.2, needed
+      spatial analysis to resolve, not just code-matching) for 3 of them,
+      and dropped the 4th exactly like COI did (a tract fully covered by
+      water that split into two in 2022, so there's no single valid
+      counterpart). Fix lives in `code/lib/ct_geoid_crosswalk.py`, applied
+      unconditionally inside `lib/acs_client.py`'s two fetch functions --
+      safe to call on any state/vintage since it only rewrites GEOIDs that
+      actually match a new-vintage Connecticut entry, everything else
+      passes through untouched. Does NOT apply to
+      `03_build_centroids_block.py` -- confirmed live that 2020 Decennial
+      PL 94-171 still uses the old county codes for Connecticut (it
+      predates the 2022 switch), so that script never had this bug.
+      Verified: Connecticut's null-lat/lon rate dropped from 100% to 17.1%,
+      right in the normal 3-18% sparse-population range every other state
+      shows; the 2 remaining unmapped GEOIDs are exactly the expected split
+      fragments of the dropped water tract, not a new problem. Only
+      Connecticut (09) has been rebuilt with the fix so far -- the other 50
+      states' `coi_5`-default output still needs to be (re)built whenever a
+      full batch run happens, though the fix is a no-op for all of them
+- [ ] **Ideas surfaced by the same document, not started**: (1) nationally/
+      state/metro-normed scoring -- COI publishes the same metric normalized
+      three ways depending on the comparison being made, directly
+      transportable to an "accessibility percentile"; (2) an "equity
+      validity" style metric -- COI deliberately excludes race from its
+      composite index (to avoid confusing race as cause vs. symptom of
+      structural inequity) but measures race-based concentration in a
+      *separate* downstream analysis, which is exactly how this project is
+      already architected (population joins after computing accessibility,
+      not baked into it); (3) computing accessibility at the block level as
+      the base unit and aggregating up, mirroring COI's own approach, rather
+      than tract-first; (4) population-sized adaptive-radius density
+      measures (COI's point-to-block convex-hull aggregation, Appendix 4) as
+      an alternative/complement to pure travel-time accessibility
+- [x] Add disability status stratification (`lib/acs_characteristics.py`'s
+      `CHARACTERISTICS` dict -- adding a new one is one entry, nothing else
+      in the pipeline changes)
+- [x] Pull decennial block-level race/ethnicity counts
+      (`lib/decennial_client.py`, `03_build_centroids_block.py`) -- the
+      finest resolution Census publishes race at
+- [x] Compute population-weighted centroids -- `02_build_centroids_block_group.py`
+      (ACS, block-group weighted) and `03_build_centroids_block.py`
+      (Decennial, block weighted). **Schema locked in** with a tunable `--k`
+      (`lib/weighted_centroids.py`, shared by both scripts): instead of
+      always collapsing a tract's sub-tract population into one weighted-
+      average point, k > 1 splits it into k population-weighted clusters via
+      weighted k-means, so a tract with separated population concentrations
+      doesn't flatten into a centroid that sits on nobody. Default k=1
+      reproduces the original single-centroid math exactly -- verified
+      byte-for-byte (population exact match, lat/lon match to float noise)
+      against pre-k-parameter output before this was trusted. Every centroid
+      also gets a `dispersion_m` (population-weighted RMS distance from the
+      centroid, meters) as a standing diagnostic independent of k, so a
+      consumer can spot a shaky single-centroid tract without needing k>1.
+      Schema: `GEOID, geography_level, state_fips, race_ethnicity,
+      characteristic, population, population_source, population_vintage,
+      centroid_source, centroid_vintage, centroid_index, centroid_k, lat,
+      lon, dispersion_m` (`lib/population_schema.py`). k=1 output keeps the
+      original filename (`origins_<year>.parquet`); k>1 writes to
+      `origins_<year>_k<k>.parquet` instead of colliding with it. Consuming
+      k>1 output correctly (grouping by centroid_index, weighting sub-
+      origins) is NOT yet done in the analysis layer -- default k=1 is safe
+      for existing code, k>1 needs `code/analysis/*` updated before use
 - [ ] Add ACS vehicle-availability-by-household data (block-group level), to
       support car-access-by-demographic-group analysis
+- [ ] Coverage: `acs` and `block_group_weighted` built for 51/56 states
+      (missing the 5 island territories); `block_weighted` (decennial) only
+      built for Massachusetts so far -- same "one state proven, rest not run
+      yet" state Layer 2 started in
+- [ ] **Known bug, root-caused, not yet fixed**: Connecticut (state 09) --
+      100% of origins have null lat/lon (vs. 3-18% elsewhere, the normal
+      sparse-population rate). Cause: Connecticut replaced its 8 legacy
+      counties with 9 new state-defined planning regions as county-
+      equivalents starting with 2022-vintage Census data. ACS 2022 5-year
+      already uses the new region codes (`09110`-`09190`); Layer 1's TIGER
+      geography is 2020-vintage and still uses the old county codes
+      (`09001`-`09015`) -- every Connecticut GEOID's county segment
+      mismatches between population data and geometry, so the block-group
+      weighting join finds zero matches. Same bug *class* the "2010 vs 2020
+      tract mismatch" note above already warns about, new instance. Real fix
+      needs either an old-county<->new-region crosswalk or 2022+-vintage
+      TIGER geometry for Connecticut specifically (its tract boundaries were
+      partly redrawn along with the region change, so a crosswalk alone may
+      not be sufficient)
+- [ ] **Known limitation, confirmed larger than documented**: the "small
+      Hispanic overlap" in `black_nh`/`asian_nh`/`other_nh`
+      (`lib/race_ethnicity_schemes.py`'s own caveat -- ACS only publishes a
+      true alone-not-Hispanic table for White, so the other "alone" race
+      counts include their Hispanic members too, double-counted against the
+      separate `hispanic` category) is NOT small in practice. Measured
+      directly: summing the 5 race categories vs. the independent `total`
+      column across Massachusetts tracts averages ~9% inflation but reaches
+      86% in the highest-Hispanic-population tracts (Lawrence/Lynn area) --
+      the overlap size tracks almost exactly with that tract's Hispanic
+      population, meaning nearly the entire Hispanic community there gets
+      double-counted into a non-white "alone" category. Worse specifically
+      in the diverse, heavily-Hispanic communities this tool's equity
+      mission cares most about. Real fix needs ACS PUMS microdata (person-
+      level, correct race x Hispanic-origin cross-tabulation), a genuinely
+      bigger lift than the tract/block-group table approach used today
 
 ## Layer 4: Destinations
 

@@ -7,8 +7,8 @@ navigation.
     population (by geography, by demographic group)
         --travels via--> a network (roads, transit, sidewalks, bike lanes...)
         --to reach--> destinations (schools, hospitals, grocery stores...)
-        = accessibility metrics, joinable by GEOID to any other tract-level
-          dataset (COI, Opportunity Atlas, redlining maps, flood risk, ...)
+        = accessibility metrics, joinable by GEOID to Layer 5 reference data
+          (COI, Opportunity Atlas, redlining maps, flood risk, ...)
 
 This is a fresh repo. An earlier single-purpose version (tracts only, driving
 only, three destination types) lives at `../transportation2` — working,
@@ -19,35 +19,69 @@ carries forward deliberately rather than starting from zero knowledge. See
 including a longer list of routing algorithms, candidate libraries, and
 possible destination types.
 
-## The four layers
+## Why this exists
 
-Every analysis this tool runs is a combination of four independently
+The Child Opportunity Index (COI) measures whether a neighborhood *has*
+resources — good schools nearby, clean air, jobs, safe housing. It doesn't
+measure whether a specific person, of a specific demographic group, starting
+from a specific address, can actually *reach* those resources in a reasonable
+amount of time by a real mode of travel. That's a different, complementary
+question, and COI's own methodology deliberately stays out of it (see
+`docs/COI 3.0 Technical Documentation 20250724.pdf`, "Should race/ethnicity be
+included as a component indicator?", p.22, for the same reasoning applied to
+race — COI measures structural features directly rather than access to them).
+This tool exists to answer the access/travel-time side of that question:
+population-weighted, demographic-sliced, routed accessibility to real
+destinations — output that's meant to sit *alongside* COI (and other
+tract-level research datasets), not inside it.
+
+## The five layers
+
+Every analysis this tool runs is a combination of five independently
 swappable inputs. The core engine (routing + accessibility scoring) doesn't
-change based on which layer choices feed it — it only ever needs a
-standardized origin schema, a standardized network graph, and a standardized
-destination schema. Making each layer conform to that standard, one prep
-script per data source, is the whole job of this rewrite.
+change based on which of the first four layers' choices feed it — it only
+ever needs a standardized origin schema, a standardized network graph, and a
+standardized destination schema. Making each layer conform to that standard,
+one prep script per data source, is the whole job of this rewrite. Layer 5 is
+different in kind from the other four: it's not computed by this tool at
+all, just joined to the tool's output by GEOID.
 
 | Layer | Examples | Status |
 |---|---|---|
-| **Geography** | Census tracts, block groups, blocks, ZCTAs, counties, congressional districts, school districts, urban areas, tribal areas | Starting now — see `code/layer1_geography/` |
-| **Travel network** | Roads, sidewalks, bike lanes, buses, trails | Not started here (roads exist in `../transportation2`) |
-| **Population** | Total, age groups, disability status, race/ethnicity | Not started here (partial version in `../transportation2`) |
-| **Destinations** | Schools, hospitals, grocery, pharmacies, and more | Not started here (pattern proven in `../transportation2`) |
+| **1. Geography** | Census tracts, block groups, blocks, ZCTAs, counties, congressional districts, school districts, urban areas, tribal areas | Standardized schema built and verified — see `code/layer1_geography/` |
+| **2. Travel network** | Roads, sidewalks, bike lanes, buses, trails | OSM (routable) and TIGER (reference) roads built and standardized; only Massachusetts fully processed so far, rest of the states queued — see `code/layer2_network/` |
+| **3. Population** | Total, age groups, disability status, race/ethnicity | ACS- and Decennial-based population-weighted centroids built, with a tunable number of centroids per tract (`--k`) and swappable race/ethnicity schemes (COI's own 5-group breakdown is the default) — see `code/layer3_population/` |
+| **4. Destinations** | Schools, hospitals, grocery, pharmacies, and more | Schools, grocery, and hospitals prepped from OSM/other sources — see `code/layer4_destination/` |
+| **5. Reference data** | COI, RUCA, redlining maps, Opportunity Atlas | Not computed by this tool — external, GEOID-joined context for the accessibility numbers Layers 1-4 produce. COI, RUCA, and redlining already prepped — see `code/layer5_reference/` |
 
-## Why this isn't Conveyal Analysis
+## Why this isn't Conveyal Analysis (or SEDT, or Spatial Access of America)
 
-The closest existing tool (Conveyal Analysis, built on R5) is a general
-"population access to jobs/opportunity" platform. This one is narrower on
-purpose: built for equity and policy analysis specifically (e.g. "do disabled
-Black residents have less transportation access to flood-risk areas in New
-Orleans"), with a demographic-subgroup-first population layer and output
-always keyed by GEOID so it drops straight into a join with COI, the
-Opportunity Atlas, redlining maps, or any other tract-level dataset a
-researcher is already using — this tool doesn't need to contain those
-datasets, just produce output that joins to them trivially. (A thorough check
-of the current tool landscape is still pending before leaning on this as a
-funding pitch.)
+No existing tool combines real network routing, demographic-subgroup slicing
+as a first-class dimension, flexible destination types, and GEOID-native
+output — checked directly against the three closest candidates (2026-07-26,
+see `docs/plan.md` for the full writeup):
+
+- **Conveyal Analysis / R5 / r5py** routes well (GTFS-based transit included)
+  and supports flexible destination types, but has no native demographic-
+  subgroup accessibility model — Conveyal's product requires uploading one
+  population layer per demographic category and running a separate job each
+  time, and r5py (the Python routing engine this tool could someday sit on)
+  has no accessibility function at all, just travel-time matrices. Its
+  internal spatial unit is also a Web Mercator grid, not census geography —
+  not GEOID-native by default. r5py is free, self-hostable, and more
+  battle-tested for transit routing than a hand-rolled router — a real
+  candidate for a future Layer 2 swap-in once transit enters scope, without
+  touching Layers 1/3/4 or the GEOID-keyed output contract. For now this
+  tool keeps its own network layer.
+- **Urban Institute's Spatial Equity Data Tool** doesn't route at all — its
+  core methodology is a siting/representativeness disparity score (does
+  where a resource sits match the population's demographic composition),
+  structurally closer to COI than to a travel-time tool. Its new
+  routing-based "access measure" pilot is limited to Maryland/Virginia/DC.
+- **Spatial Access of America** (Purdue, 2025) is the closest methodological
+  peer — real routing, demographic-sliced job/POI access — but is a static
+  published dataset covering the 50 largest urban areas, with no transit and
+  no path to extend it.
 
 ## Known constraints worth remembering
 
@@ -63,6 +97,15 @@ funding pitch.)
 - **School bus route data**: no known public national source. Not an
   architecture problem (any network type slots in the same way) — a
   data-availability problem to keep chasing separately.
+- **Connecticut's 2022 planning-region switch** breaks any naive GEOID join
+  between ACS 2022+ data and 2020-vintage TIGER geometry — the Census Bureau
+  replaced CT's 8 legacy counties with 9 new county-equivalent planning
+  regions, changing every CT GEOID's county segment even though tract/
+  block-group boundaries never moved. Fixed via a tract-code crosswalk
+  (`code/lib/ct_geoid_crosswalk.py`, applied automatically in
+  `lib/acs_client.py`) — same approach the Child Opportunity Index team used
+  for the same problem (see `docs/COI 3.0 Technical Documentation
+  20250724.pdf`, Appendix 6).
 
 ## Folder structure
 
@@ -96,10 +139,25 @@ outputs/
 
 docs/
   reference.md           # routing algorithms, candidate libraries, destination ideas
+  plan.md                 # detailed development plan and todo list, by layer
+  COI 3.0 Technical Documentation 20250724.pdf  # the Child Opportunity Index's
+                          # own methodology -- our most-used Layer 5 reference,
+                          # and the source for several Layer 1/3 design decisions
+  Transportation Accessibility Engine Overview.pptx  # quick non-technical
+                          # overview slides -- architecture/motivation/novelty,
+                          # no results (see docs/plan.md for actual findings)
 ```
 
 ## Current focus
 
+Building toward a first real transportation-equity accessibility measure
+(demographic-sliced, routed, destination-flexible) using Layers 1-4 as they
+stand today -- no restructuring of the five-layer architecture to fit any
+single downstream consumer's shape, COI included. COI's role stays Layer 5:
+something the tool's output joins to, not something it's built to feed.
+
+Layers 1-3 all have substantial work in place -- see `docs/plan.md` for the
+full, current, per-layer status (this README stays intentionally high-level).
 Layer 1 (Geography): pull tract, block group, block, ZCTA, county, and school
 district boundaries from the Census Bureau's TIGER/Line data for all states,
 for both the 2010 and 2020 vintages, into `data/layer1_geography/raw/<year>/`

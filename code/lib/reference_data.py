@@ -20,6 +20,7 @@ REDLINING_DIR = REPO_ROOT / "data" / "layer5_reference" / "redlining" / "process
 
 REFERENCE_COLUMNS = [
     "coi_level_nat", "coi_score_nat", "coi_vintage",
+    "metro_fips", "metro_name", "metro_type", "in_top100_metro",
     "ruca_code", "ruca_description", "ruca_vintage",
     "redlining_grade", "redlining_category", "redlining_vintage",
 ]
@@ -35,7 +36,10 @@ def attach_reference_attributes(df):
 
     coi_path = _latest("coi_tract_*.parquet", COI_DIR)
     if coi_path:
-        coi = pd.read_parquet(coi_path)[["GEOID", "coi_level_nat", "coi_score_nat", "coi_vintage"]]
+        coi_cols = ["GEOID", "coi_level_nat", "coi_score_nat", "coi_vintage",
+                    "metro_fips", "metro_name", "metro_type", "in_top100_metro"]
+        coi = pd.read_parquet(coi_path)
+        coi = coi[[c for c in coi_cols if c in coi.columns]]
         df = df.merge(coi, on="GEOID", how="left")
 
     ruca_path = _latest("ruca_tract_*.parquet", RUCA_DIR)

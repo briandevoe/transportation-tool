@@ -21,6 +21,7 @@ METRICS_COLUMNS = [
     "nearest_value", "avg_k_nearest_value", "k_nearest",
     "avg_within_threshold_value", "n_within_threshold", "threshold_value",
     "coi_level_nat", "coi_score_nat", "coi_vintage",
+    "metro_fips", "metro_name", "metro_type", "in_top100_metro",
     "ruca_code", "ruca_description", "ruca_vintage",
     "redlining_grade", "redlining_category", "redlining_vintage",
 ]
@@ -44,6 +45,10 @@ METRICS_DTYPES = {
     "coi_level_nat": "string",
     "coi_score_nat": "float64",
     "coi_vintage": "string",
+    "metro_fips": "string",
+    "metro_name": "string",
+    "metro_type": "string",
+    "in_top100_metro": "boolean",
     "ruca_code": "float64",
     "ruca_description": "string",
     "ruca_vintage": "string",

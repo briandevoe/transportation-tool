@@ -43,17 +43,22 @@ def main():
     parser.add_argument("--year", type=int, default=2022, help="ACS 5-year vintage (default: 2022)")
     parser.add_argument("--characteristics", nargs="+", default=["N/A"], choices=list(CHARACTERISTICS),
                          help="Characteristic(s) to pull (default: N/A -- no age/disability filter)")
-    parser.add_argument("--race-scheme", default="simplified_5", choices=list(SCHEMES),
-                         help="Race/ethnicity category scheme (default: simplified_5)")
+    parser.add_argument("--race-scheme", default="coi_5", choices=list(SCHEMES),
+                         help="Race/ethnicity category scheme (default: coi_5, matching COI's own breakdown)")
     parser.add_argument("--api-key", default=None, help="Census API key (default: CENSUS_API_KEY env var)")
     args = parser.parse_args()
 
     api_key = get_api_key(args.api_key)
     state_fips = args.state_fips
 
-    out_path = DATA_DIR / state_fips / f"population_{args.year}.parquet"
+    # Filename must include the scheme -- otherwise a detailed_7 run for a
+    # state that already has simplified_5 output either silently skips
+    # (thinking it's already built) or overwrites it. Default scheme keeps
+    # the original filename so existing files/callers aren't disturbed.
+    scheme_suffix = "" if args.race_scheme == "coi_5" else f"_{args.race_scheme}"
+    out_path = DATA_DIR / state_fips / f"population_{args.year}{scheme_suffix}.parquet"
     if out_path.exists():
-        print(f"[{state_fips}] {args.year} — already downloaded, skipping.")
+        print(f"[{state_fips}] {args.year} {args.race_scheme} — already downloaded, skipping.")
         return
 
     print(f"[{state_fips}] ACS {args.year} 5-year: {args.characteristics} x {args.race_scheme}")

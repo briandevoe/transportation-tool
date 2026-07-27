@@ -25,9 +25,10 @@ code/lib/network_schema.py), combined into one file per state:
     data/layer2_network/roads/tiger/processed/<state_fips>/edges.parquet
 
 Usage:
-    python 02_download_tiger_roads.py                   # Massachusetts, 2020 (default)
-    python 02_download_tiger_roads.py --state-fips 36    # New York, 2020
-    python 02_download_tiger_roads.py --year 2022        # a different TIGER vintage
+    python 02_download_tiger_roads.py                     # Massachusetts, 2020 (default)
+    python 02_download_tiger_roads.py --state-fips 36 42   # New York and Pennsylvania, 2020
+    python 02_download_tiger_roads.py --region all          # all 56 states/territories, 2020
+    python 02_download_tiger_roads.py --year 2022          # a different TIGER vintage
 """
 import argparse
 import re
@@ -41,6 +42,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.network_schema import validate_network_edges
+from lib.tiger_download import REGION_PRESETS
+from lib.tiger_download import download_one as tiger_download_one
+from lib.tiger_download import fmt_elapsed
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 DATA_DIR = REPO_ROOT / "data" / "layer2_network" / "roads" / "tiger"
@@ -69,11 +73,6 @@ LENGTH_CRS = "EPSG:5070"   # CONUS Albers equal-area, for length_m -- not valid 
 STORAGE_CRS = "EPSG:4326"  # match the OSM edges output for a directly comparable geometry CRS
 
 
-def fmt_elapsed(seconds):
-    m, s = divmod(int(seconds), 60)
-    return f"{m}m {s:02d}s" if m else f"{s}s"
-
-
 def list_county_files(year, state_fips):
     """Scrape the live ROADS directory listing for every county file under a
     state, rather than hand-maintaining a state->county FIPS list."""
@@ -84,14 +83,16 @@ def list_county_files(year, state_fips):
     return sorted(set(re.findall(pattern, html)))
 
 
-def download_one(filename, year, raw_dir):
+def download_one_county(filename, year, raw_dir):
+    # Delegates to lib.tiger_download's hardened download_one (zip-signature
+    # validation + 429 retry-backoff) instead of a bare urlretrieve -- with
+    # ~3,234 counties nationally instead of the ~56 per-state requests
+    # everything else here makes, the WAF-block-page and rate-limit issues
+    # already hit once are far more likely to recur unnoticed at this scale.
     dest_path = raw_dir / filename
-    if dest_path.exists():
-        return dest_path, "skipped"
-    raw_dir.mkdir(parents=True, exist_ok=True)
     url = f"{BASE_URL.format(year=year)}/{filename}"
-    urllib.request.urlretrieve(url, dest_path)
-    return dest_path, "downloaded"
+    result = tiger_download_one(url, dest_path)
+    return dest_path, result
 
 
 def map_highway_class(mtfcc):
@@ -117,15 +118,7 @@ def standardize(county_paths, state_fips, year):
     return validate_network_edges(gdf)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--state-fips", default="25", help="State FIPS code (default: 25, Massachusetts)")
-    parser.add_argument("--year", type=int, default=2020, help="TIGER/Line vintage year (default: 2020, matches layer1)")
-    args = parser.parse_args()
-
-    state_fips = args.state_fips
-    year = args.year
-
+def process_state(state_fips, year):
     out_dir = DATA_DIR / "processed" / state_fips
     edges_path = out_dir / "edges.parquet"
     if edges_path.exists():
@@ -135,18 +128,27 @@ def main():
     print(f"[{state_fips}] TIGER {year} ROADS")
     filenames = list_county_files(year, state_fips)
     if not filenames:
-        raise SystemExit(f"No ROADS files found for state FIPS {state_fips}, year {year}")
+        print(f"  No ROADS files found for state FIPS {state_fips}, year {year} -- skipping.")
+        return
     print(f"  {len(filenames)} counties found")
 
     raw_dir = DATA_DIR / "raw" / str(year)
     county_paths = []
-    counts = {"downloaded": 0, "skipped": 0}
+    counts = {"downloaded": 0, "skipped": 0, "failed": 0}
     t0 = time.time()
     for filename in filenames:
-        path, result = download_one(filename, year, raw_dir)
-        county_paths.append(path)
+        path, result = download_one_county(filename, year, raw_dir)
         counts[result] += 1
-    print(f"  {counts['downloaded']} downloaded, {counts['skipped']} already present ({fmt_elapsed(time.time() - t0)})")
+        if result != "skipped":
+            time.sleep(0.3)  # avoid tripping the server's rate limit on back-to-back requests
+        if result != "failed":
+            county_paths.append(path)
+    print(f"  {counts['downloaded']} downloaded, {counts['skipped']} already present, "
+          f"{counts['failed']} failed ({fmt_elapsed(time.time() - t0)})")
+
+    if not county_paths:
+        print(f"  No usable county files for state FIPS {state_fips} -- skipping standardization.")
+        return
 
     print("  Standardizing...")
     edges_gdf = standardize(county_paths, state_fips, year)
@@ -154,6 +156,24 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     edges_gdf.to_parquet(edges_path)
     print(f"  Wrote {len(edges_gdf):,} edges -> {edges_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--state-fips", nargs="+", default=["25"],
+                         help="State FIPS code(s) (default: 25, Massachusetts) -- overridden by --region if given")
+    parser.add_argument("--region", choices=list(REGION_PRESETS), default=None,
+                         help="'all' = 56 states/territories, 'conus_ak_hi' = 50 states + DC, no territories -- "
+                              "use this instead of --state-fips to run many states in one invocation")
+    parser.add_argument("--year", type=int, default=2020, help="TIGER/Line vintage year (default: 2020, matches layer1)")
+    args = parser.parse_args()
+
+    states = REGION_PRESETS[args.region] if args.region else args.state_fips
+
+    for state_fips in states:
+        process_state(state_fips, args.year)
+
+    print("\nDone.")
 
 
 if __name__ == "__main__":

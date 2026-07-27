@@ -35,6 +35,17 @@ A tract with zero population of some slice gets a null lat/lon, not a
 fallback point -- the weighting is genuinely undefined (0/0), and a fake
 fallback would misrepresent an absence as a location.
 
+--k: how many population-weighted centroids to compute per (tract, race,
+characteristic) group instead of always collapsing to one (see
+lib/weighted_centroids.py). Default 1 reproduces the original single-
+centroid output exactly. Each centroid's `population` is the tract-level
+ACS figure rescaled by that centroid's share of the block-group-level
+weighting total, NOT the block-group total directly -- keeps the
+authoritative tract-level population count intact (matches k=1 behavior
+exactly) while splitting it proportionally across centroids when k>1.
+k>1 output is written to a separate file (origins_<year>_k<k>.parquet) so it
+never collides with or silently replaces the k=1 default.
+
 Requires a free Census API key: https://api.census.gov/data/key_signup.html
 Set via the CENSUS_API_KEY env var, or pass --api-key.
 
@@ -42,6 +53,7 @@ Usage:
     python 02_build_centroids_block_group.py
     python 02_build_centroids_block_group.py --characteristics under_18 disability
     python 02_build_centroids_block_group.py --state-fips 36 --year 2023
+    python 02_build_centroids_block_group.py --k 2
 """
 import argparse
 import sys
@@ -55,6 +67,7 @@ from lib.acs_characteristics import CHARACTERISTICS
 from lib.acs_client import fetch_population, fetch_race_totals, get_api_key
 from lib.population_schema import validate_population_origins
 from lib.race_ethnicity_schemes import SCHEMES, get_scheme, get_weight_scheme
+from lib.weighted_centroids import weighted_centroid_clusters
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 OUT_DIR = REPO_ROOT / "data" / "layer3_population" / "block_group_weighted" / "processed"
@@ -71,24 +84,27 @@ def get_bg_internal_points(state_fips):
     return points[["GEOID", "lat", "lon"]]
 
 
-def weighted_centroids(bg_population, bg_points, group_keys):
-    """group_keys: which columns (beyond GEOID) to compute one centroid per
-    -- ["race_ethnicity", "characteristic"] for the total-row path,
-    ["race_ethnicity"] only for the B03002 race-totals path (no
-    characteristic dimension there)."""
-    df = bg_population.merge(bg_points, on="GEOID", how="inner")
-    df["GEOID_tract"] = df["GEOID"].str[:11]
-    df["_wx"] = df["population"] * df["lon"]
-    df["_wy"] = df["population"] * df["lat"]
-
-    grouped = df.groupby(["GEOID_tract"] + group_keys, as_index=False).agg(
-        _wx=("_wx", "sum"), _wy=("_wy", "sum"), population=("population", "sum"),
+def attach_centroids(tract_population, centroids, merge_keys, k):
+    """Left-merge tract_population onto a (possibly k>1) centroid table,
+    rescaling each centroid's population to its share of the authoritative
+    tract-level total rather than trusting the centroid table's own
+    (block-group-derived) population directly -- keeps k=1 output
+    numerically identical to using tract_population's value outright, and
+    splits it proportionally across centroids when k>1. A tract with no
+    matching centroid row at all (e.g. the known Connecticut 2022-planning-
+    region GEOID mismatch) still gets a valid centroid_index/centroid_k
+    with null lat/lon/dispersion_m, rather than an unrepresentable NaN in a
+    required integer column."""
+    merged = tract_population.merge(
+        centroids.rename(columns={"population": "_centroid_population"}),
+        on=merge_keys, how="left",
     )
-    grouped["lon"] = grouped["_wx"] / grouped["population"]
-    grouped["lat"] = grouped["_wy"] / grouped["population"]
-    grouped.loc[grouped["population"] == 0, ["lat", "lon"]] = None  # 0/0: undefined, not a fallback point
-
-    return grouped.rename(columns={"GEOID_tract": "GEOID"})[["GEOID"] + group_keys + ["lat", "lon"]]
+    group_totals = merged.groupby(merge_keys)["_centroid_population"].transform("sum")
+    share = (merged["_centroid_population"] / group_totals).fillna(1.0)
+    merged["population"] = merged["population"] * share
+    merged["centroid_index"] = merged["centroid_index"].fillna(0).astype(int)
+    merged["centroid_k"] = merged["centroid_k"].fillna(k).astype(int)
+    return merged.drop(columns="_centroid_population")
 
 
 def main():
@@ -97,8 +113,10 @@ def main():
     parser.add_argument("--year", type=int, default=2022, help="ACS 5-year vintage (default: 2022)")
     parser.add_argument("--characteristics", nargs="+", default=["N/A"], choices=list(CHARACTERISTICS),
                          help="Characteristic(s) to pull (default: N/A -- no age/disability filter)")
-    parser.add_argument("--race-scheme", default="simplified_5", choices=list(SCHEMES),
-                         help="Race/ethnicity category scheme (default: simplified_5)")
+    parser.add_argument("--race-scheme", default="coi_5", choices=list(SCHEMES),
+                         help="Race/ethnicity category scheme (default: coi_5, matching COI's own breakdown)")
+    parser.add_argument("--k", type=int, default=1,
+                         help="Population-weighted centroids per (tract, race, characteristic) group (default: 1)")
     parser.add_argument("--api-key", default=None, help="Census API key (default: CENSUS_API_KEY env var)")
     args = parser.parse_args()
 
@@ -107,9 +125,15 @@ def main():
     scheme = get_scheme(args.race_scheme)
     weight_scheme = get_weight_scheme(args.race_scheme)
 
-    out_path = OUT_DIR / state_fips / f"origins_{args.year}.parquet"
+    # Filename must include both the race scheme and k -- otherwise e.g. a
+    # detailed_7 or k=2 run for a state that already has simplified_5/k=1
+    # output either silently skips or overwrites it. Defaults keep the
+    # original filename so existing files/callers aren't disturbed.
+    scheme_suffix = "" if args.race_scheme == "coi_5" else f"_{args.race_scheme}"
+    k_suffix = "" if args.k == 1 else f"_k{args.k}"
+    out_path = OUT_DIR / state_fips / f"origins_{args.year}{scheme_suffix}{k_suffix}.parquet"
     if out_path.exists():
-        print(f"[{state_fips}] {args.year} — already built, skipping.")
+        print(f"[{state_fips}] {args.year} {args.race_scheme} k={args.k} — already built, skipping.")
         return
 
     bg_points = get_bg_internal_points(state_fips)
@@ -129,12 +153,12 @@ def main():
 
     print(f"[{state_fips}] Fetching block-group race totals for weighting (B03002, general population)...")
     bg_race = fetch_race_totals(state_fips, args.year, "block group", weight_scheme, api_key)
-    centroids_general = weighted_centroids(bg_race, bg_points, ["race_ethnicity"])
+    centroids_general = weighted_centroid_clusters(bg_race, bg_points, ["race_ethnicity"], k=args.k)
 
     if bg_capable:
         print(f"[{state_fips}] Fetching block-group population for weighting (total, characteristic-specific)...")
         bg_total = fetch_population(state_fips, args.year, "block group", {}, bg_capable, api_key)
-        centroids_specific = weighted_centroids(bg_total, bg_points, ["race_ethnicity", "characteristic"])
+        centroids_specific = weighted_centroid_clusters(bg_total, bg_points, ["race_ethnicity", "characteristic"], k=args.k)
     else:
         centroids_specific = None
 
@@ -145,9 +169,9 @@ def main():
         tract_population["race_ethnicity"].eq("total") & tract_population["characteristic"].isin(bg_capable)
         if centroids_specific is not None else pd.Series(False, index=tract_population.index)
     )
-    general_rows = tract_population[~use_specific].merge(centroids_general, on=["GEOID", "race_ethnicity"], how="left")
+    general_rows = attach_centroids(tract_population[~use_specific], centroids_general, ["GEOID", "race_ethnicity"], args.k)
     if centroids_specific is not None:
-        specific_rows = tract_population[use_specific].merge(centroids_specific, on=["GEOID", "race_ethnicity", "characteristic"], how="left")
+        specific_rows = attach_centroids(tract_population[use_specific], centroids_specific, ["GEOID", "race_ethnicity", "characteristic"], args.k)
         df = pd.concat([specific_rows, general_rows], ignore_index=True)
     else:
         df = general_rows
