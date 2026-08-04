@@ -1,7 +1,7 @@
 """Attach the processed reference datasets (code/layer5_reference/*.py output)
-onto any GEOID-keyed DataFrame -- used by both code/analysis scripts so a
-groupby on COI level / RUCA code / redlining grade works identically
-regardless of which distance method produced the metrics.
+onto any GEOID-keyed DataFrame -- so a groupby on COI level / RUCA code /
+redlining grade works identically regardless of which distance method
+produced the metrics.
 
 All three are left-joins: a tract with no COI/RUCA/redlining match keeps its
 row with null reference columns rather than being dropped. COI and RUCA are

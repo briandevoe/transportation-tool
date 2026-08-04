@@ -17,8 +17,8 @@ from pathlib import Path
 
 # --- Config: edit these, then run this file ---
 CONGRESS = [113, 118]   # 113 = first map based on the 2010 census, 118 = first based on the 2020 census
-REGION = "all"           # "all" or "conus_ak_hi"
-STATE_FIPS = None        # e.g. ["25", "36"] -- overrides REGION if set
+REGION = None            # "all" or "conus_ak_hi" -- set this to run many states at once
+STATE_FIPS = ["25"]      # e.g. ["25", "36"] -- default: Massachusetts only, for a quick test
 # ------------------------------------------------
 
 SCRIPT = Path(__file__).parent / "02_download_congressional_dist.py"

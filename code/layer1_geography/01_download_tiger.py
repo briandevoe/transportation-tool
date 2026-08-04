@@ -152,14 +152,15 @@ def main():
                          help="Geography type(s) to download (default: all)")
     parser.add_argument("--year", type=int, default=2020,
                          help=f"TIGER/Line vintage year (default: 2020; supported: {sorted(GEOGRAPHY_CONFIG_BY_VINTAGE)})")
-    parser.add_argument("--region", choices=list(REGION_PRESETS), default="all",
-                         help="'all' = 56 states/territories, 'conus_ak_hi' = 50 states + DC, no territories (default: all)")
-    parser.add_argument("--state-fips", nargs="+", default=None,
-                         help="Specific state FIPS code(s) -- overrides --region if given")
+    parser.add_argument("--region", choices=list(REGION_PRESETS), default=None,
+                         help="'all' = 56 states/territories, 'conus_ak_hi' = 50 states + DC, no territories -- "
+                              "use this instead of --state-fips to run many states in one invocation")
+    parser.add_argument("--state-fips", nargs="+", default=["25"],
+                         help="Specific state FIPS code(s) (default: 25, Massachusetts) -- overridden by --region if given")
     args = parser.parse_args()
 
     data_dir = REPO_ROOT / "data" / "layer1_geography" / "raw"
-    states = args.state_fips or REGION_PRESETS[args.region]
+    states = REGION_PRESETS[args.region] if args.region else args.state_fips
 
     for geography in args.geography:
         download_geography(geography, args.year, data_dir, states)

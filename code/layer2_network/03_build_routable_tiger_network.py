@@ -14,7 +14,7 @@ The tradeoff is real and worth stating plainly:
     SPEED_KPH_BY_CLASS), not anything measured.
   - TIGER carries no oneway attribute either -- every edge is treated as
     two-way (emitted as two directed rows, matching how OSM's already-
-    directed edges work downstream in code/analysis/*).
+    directed edges are consumed downstream).
   - Node topology doesn't exist in the ROADS cartographic extract as
     published -- this script reconstructs it by snapping coincident segment
     endpoints (rounded to 7 decimal degrees, ~1cm) into shared node ids.

@@ -38,8 +38,17 @@ every layer uses) lives in `code/lib/`.
 
 ## How to run something
 
+Every layer folder has its own `README.md` with that layer's scripts, run
+order, and any prerequisites -- start there:
+[`code/layer1_geography/README.md`](code/layer1_geography/README.md) ·
+[`code/layer2_network/README.md`](code/layer2_network/README.md) ·
+[`code/layer3_population/README.md`](code/layer3_population/README.md) ·
+[`code/layer4_destination/README.md`](code/layer4_destination/README.md) ·
+[`code/layer5_reference/README.md`](code/layer5_reference/README.md)
+
 Every prep script takes command-line flags (state, year, race scheme, etc.)
--- run any script with `--help` to see its options:
+-- run any script with `--help` to see its options, and **every script
+defaults to Massachusetts** if you don't pass `--state-fips`:
 
 ```
 python code/layer1_geography/01_download_tiger.py --help
@@ -55,6 +64,42 @@ Scripts are numbered in the order you'd normally run them within a layer
 (e.g. `01_download_tiger.py` before `04_standardize_geographies.py`) --
 later layers depend on earlier ones (Layer 3's population centroids need
 Layer 1's geography, for example).
+
+## Getting Massachusetts data end-to-end
+
+Two things to line up before running anything:
+- A free Census API key (Layer 3 and one Layer 5 script need it) --
+  https://api.census.gov/data/key_signup.html, then set `CENSUS_API_KEY`.
+- A few Layer 4/5 scripts (schools, COI, RUCA, redlining) read a raw source
+  file that has to already exist locally -- `data/` isn't in git, so a
+  fresh clone has none of them. See each layer's README for exactly which
+  file and where it goes; ask Brian for copies rather than re-downloading
+  if you're not sure you have the current version.
+
+With those in place, running every layer for Massachusetts (the default
+everywhere) looks like:
+
+```
+# Layer 1: geography
+python code/layer1_geography/01_download_tiger.py
+python code/layer1_geography/02_download_congressional_dist.py
+python code/layer1_geography/04_standardize_geographies.py
+
+# Layer 2: network
+python code/layer2_network/01_download_osm_roads.py
+
+# Layer 3: population (needs CENSUS_API_KEY)
+python code/layer3_population/01_download_acs_population.py
+python code/layer3_population/02_build_centroids_block_group.py
+python code/layer3_population/03_build_centroids_block.py
+
+# Layer 4: destinations (schools needs its manual files in place first)
+python code/layer4_destination/02_prepare_grocery_osm.py
+python code/layer4_destination/03_prepare_hospitals_osm.py
+
+# Layer 5: reference data (COI/RUCA/redlining need their manual files first)
+python code/layer5_reference/04_prepare_vehicle_availability.py
+```
 
 ## Folder structure
 

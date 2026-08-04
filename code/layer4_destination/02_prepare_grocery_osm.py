@@ -8,7 +8,7 @@ this state).
 
 Scoped to shop=supermarket / shop=grocery specifically, not shop=convenience
 -- convenience stores are a materially different food-access category
-(docs/reference.md already lists them separately), not a smaller version of
+(docs/overview.md already lists them separately), not a smaller version of
 the same thing. category preserves the real supermarket-vs-grocery
 distinction rather than collapsing it into one label.
 

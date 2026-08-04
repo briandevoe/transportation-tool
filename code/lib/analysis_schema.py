@@ -1,6 +1,9 @@
-"""Shared schema for code/analysis -- accessibility metrics that merge an
-origins table (layer3) against a destinations table (layer4), plus
-reference-data attributes (code/lib/reference_data.py).
+"""Shared schema for accessibility metrics that merge an origins table
+(layer3) against a destinations table (layer4), plus reference-data
+attributes (code/lib/reference_data.py). Originally used by the one-off
+analysis scripts archived at ../archive/transportation-tool-analysis-
+visualization-scripts/ -- this schema is what any future accessibility
+function suite should keep emitting.
 
 Same validate_*()/explicit-dtype pattern as every other layer (CSV
 round-trips silently discard dtype info; output is Parquet).

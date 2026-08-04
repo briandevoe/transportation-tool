@@ -82,14 +82,16 @@ def main():
     parser.add_argument("--congress", nargs="+", type=int, choices=list(CONGRESS_CONFIG), default=DEFAULT_CONGRESSES,
                          help=f"Congress number(s) to download (default: {DEFAULT_CONGRESSES}, "
                               "the first congress based on each of the 2010 and 2020 censuses)")
-    parser.add_argument("--region", choices=list(REGION_PRESETS), default="all",
-                         help="'all' = 56 states/territories, 'conus_ak_hi' = 50 states + DC, no territories (default: all)")
-    parser.add_argument("--state-fips", nargs="+", default=None,
-                         help="Specific state FIPS code(s) -- overrides --region if given (ignored for congress 113 -- one national file)")
+    parser.add_argument("--region", choices=list(REGION_PRESETS), default=None,
+                         help="'all' = 56 states/territories, 'conus_ak_hi' = 50 states + DC, no territories -- "
+                              "use this instead of --state-fips to run many states in one invocation")
+    parser.add_argument("--state-fips", nargs="+", default=["25"],
+                         help="Specific state FIPS code(s) (default: 25, Massachusetts; ignored for congress 113 -- "
+                              "one national file) -- overridden by --region if given")
     args = parser.parse_args()
 
     data_dir = REPO_ROOT / "data" / "layer1_geography" / "raw"
-    states = args.state_fips or REGION_PRESETS[args.region]
+    states = REGION_PRESETS[args.region] if args.region else args.state_fips
 
     for congress in args.congress:
         download_congress(congress, data_dir, states)

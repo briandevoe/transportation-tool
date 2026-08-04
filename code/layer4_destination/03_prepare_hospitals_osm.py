@@ -69,9 +69,9 @@ def process_state(state_fips):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--state-fips", nargs="+", default=["all"],
+    parser.add_argument("--state-fips", nargs="+", default=["25"],
                          help="One or more state FIPS codes, or 'all' for the 49 states + DC default set "
-                              "(excludes AK; default: all)")
+                              "(excludes AK; default: 25, Massachusetts)")
     args = parser.parse_args()
 
     states = STATE_FIPS_49 if args.state_fips == ["all"] else args.state_fips

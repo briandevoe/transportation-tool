@@ -1,7 +1,7 @@
 """
 Layer 5 (Reference data): household vehicle availability, tract-level, from
 ACS table B25044 (Tenure by Vehicles Available). Filed here rather than in
-layer3_population despite docs/plan.md's original TODO placement, because
+layer3_population despite docs/notes.md's original TODO placement, because
 B25044 has no race/ethnicity iteration at all (verified live against
 https://api.census.gov/data/2022/acs/acs5/groups/B25044.json -- it's a
 tenure/housing-unit table, not part of the race-iterated family like
