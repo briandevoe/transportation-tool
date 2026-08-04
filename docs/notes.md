@@ -51,16 +51,10 @@ Explicit decisions, so they don't get re-litigated by accident later:
 - [ ] Lock the standardized schema each layer must output (geography, population,
       network, destinations), keyed by GEOID with an explicit vintage field --
       this is the one decision that's expensive to redo later
-- [ ] Design the library's public API: one prep function per layer
-      (`get_geography()`, `get_population()`, `get_network()`, `get_destinations()`)
-      returning standardized objects, plus one core function
-      (`compute_accessibility(geography, network, population, destinations,
-      algorithm=...)`) that runs routing + scoring against already-prepared
-      inputs. Keeps expensive one-time prep (esp. network building) separate
-      from cheap repeated computation.
-- [ ] Design the algorithm dispatch layer -- Dijkstra, Euclidean, and future
-      RAPTOR/transit routing all need different inputs, so `algorithm=` is a
-      dispatcher, not a literal drop-in swap
+- [x] Design the library's public API -- **moved to `docs/function_design.md`**,
+      which now has the full sketch (four prep functions, a `Network` class,
+      the routing/scoring split, algorithm dispatch) and the schema decisions
+      that go with it. Still design-only, nothing implemented yet.
 - [ ] Pick a license for the repo, especially given eventual outside-researcher
       use; confirm r5r's license before depending on it; note OSM data itself
       is ODbL (share-alike on redistributed derived datasets, not just code)

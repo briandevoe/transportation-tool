@@ -10,6 +10,7 @@ igraph
 statsmodels
 pyrosm
 pyarrow
+matplotlib
 # pyrosm pulls in protobuf; pin below the range that conflicts with
 # google-api-core/googleapis-common-protos/proto-plus if those are also
 # installed in this environment (they are, for the Gmail/Calendar/Drive tools)

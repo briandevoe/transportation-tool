@@ -33,8 +33,13 @@ gets joined to afterward, not something the engine computes.
 | **4. Destinations** | Schools, hospitals, grocery stores | `code/layer4_destination/` |
 | **5. Reference data** | COI, RUCA, redlining -- external, joined by GEOID | `code/layer5_reference/` |
 
-Shared code (schemas, download clients, the routing/accessibility helpers
-every layer uses) lives in `code/lib/`.
+Shared prep infrastructure (schemas, download clients, weighting math that
+layer1-4's own scripts use to produce their output) lives in `code/lib/`.
+
+The function suite that actually *consumes* Layers 1-4 to compute
+accessibility -- turning all of this into a reusable library instead of
+one-off scripts -- lives in `code/engine/`. Design only right now, not yet
+implemented: see [`docs/function_design.md`](docs/function_design.md).
 
 ## How to run something
 
@@ -107,6 +112,8 @@ python code/layer5_reference/04_prepare_vehicle_availability.py
 code/
   layer1_geography/    layer2_network/    layer3_population/
   layer4_destination/  layer5_reference/  lib/
+  engine/               # the accessibility function suite -- design-only
+                        # stubs today, see docs/function_design.md
 
 data/
   layer1_geography/raw/        # untouched downloads, by vintage
@@ -120,16 +127,49 @@ docs/
                              # algorithms, and libraries considered per layer
   notes.md                  # engineering log -- decisions, bugs found and
                              # fixed, and the reasoning behind each layer
+  function_design.md        # design (not yet implemented) for the shared
+                             # accessibility function suite/library
   accessibility_models.md   # to-do list of accessibility models to build
   emilie_tasks.txt          # current week's task list
   COI 3.0 Technical Documentation 20250724.pdf
 ```
 
+## Planned usage (not runnable yet)
+
+`code/engine/` is a scaffold right now -- every function below raises
+`NotImplementedError`. This is the interface it's being built to, so you
+can see where the project is headed; keep this block in sync as `engine/`
+actually gets implemented (see `docs/function_design.md`).
+
+```python
+from engine import get_population, get_network, get_destinations, compute_matrix, score, attach_reference_attributes
+
+# 1. Load already-prepared layers for a state (fast -- just reads parquet)
+population = get_population(state_fips="25")                          # layer 3
+network    = get_network(state_fips="25")                              # layer 2
+hospitals  = get_destinations(dest_type="hospital", state_fips="25")   # layer 4
+
+# 2. Route (layers 2+3+4 combine here)
+matrix = compute_matrix(population, hospitals, network=network, algorithm="dijkstra")
+
+# 3. Score (turn the matrix into a metric)
+metrics = score(matrix, population, metric="nearest")   # one row per GEOID x race_ethnicity x characteristic
+
+# 4. Attach Layer 5 -- a join, not part of the computation
+metrics = attach_reference_attributes(metrics)           # adds coi_level_nat, ruca_code, redlining_grade, ...
+
+# 5. The actual research question -- plain pandas, not part of the engine at all
+metrics.groupby("race_ethnicity")["nearest_time_min"].mean()
+```
+
+Steps 1-3 are what the engine standardizes across every use of this tool;
+step 5 is disposable, question-specific analysis that changes every time.
+
 ## Current status
 
 Layers 1-4 have real, working code -- see `docs/notes.md` for the detailed,
 per-layer status and `docs/accessibility_models.md` for what's built vs.
-what's next. The next major step is designing a shared function suite that
-brings all four layers together into one reusable accessibility-computation
-engine (`docs/accessibility_models.md`'s first to-do item) -- not started
-yet, a design discussion before any code gets written.
+what's next. `code/engine/` now exists as a scaffold (folder + function
+signatures + docstrings, matching `docs/function_design.md`), but every
+function in it still just raises `NotImplementedError` -- the design is
+settled, the implementation isn't started.

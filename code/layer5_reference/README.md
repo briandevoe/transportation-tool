@@ -49,4 +49,4 @@ python 03_prepare_redlining.py
 
 `data/layer5_reference/<coi|ruca|redlining|vehicle_availability>/
 processed/...` -- all GEOID-keyed lookup tables, meant to be joined onto
-Layer 1-4 output via `code/lib/reference_data.py`, not consumed directly.
+Layer 1-4 output via `code/engine/reference_data.py`, not consumed directly.

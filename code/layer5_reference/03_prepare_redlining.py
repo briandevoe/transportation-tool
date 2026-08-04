@@ -11,7 +11,7 @@ is specifically a residential lending-risk classification.
 HOLC only surveyed ~239 cities in the 1930s, so most tracts nationally
 overlap NO HOLC polygon at all. That's correct, expected sparse coverage --
 this script only outputs rows for tracts that overlap something, rather than
-padding out a full state tract list with nulls (lib/reference_data.py's join
+padding out a full state tract list with nulls (engine/reference_data.py's join
 naturally leaves every other tract null when it merges this in).
 
 Method: reproject both the HOLC polygons and layer1's tract polygons to

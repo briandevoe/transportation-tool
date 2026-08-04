@@ -11,12 +11,11 @@ reference while the new function suite gets designed).
 ## To-do, in priority order
 
 - [ ] **Design the shared function suite** that brings Layers 1-4 together
-      (one prep function per layer, one `compute_accessibility(...)` function
-      that takes already-prepared layers + an `algorithm=` choice). This
-      replaces the archived one-off `analysis/` scripts with something
-      reusable. The API shape is already sketched in `docs/notes.md`'s
-      "Architecture decisions" section -- needs a design discussion before
-      any code gets written.
+      (one prep function per layer, a `Network` class, a routing/scoring
+      split, and an `algorithm=` dispatcher). This replaces the archived
+      one-off `analysis/` scripts with something reusable. Full design --
+      including the schema decisions already made -- now lives in
+      `docs/function_design.md`. Still design-only; no code written yet.
 - [ ] **Cumulative Opportunity / Contour measure** -- count of opportunities
       reachable within a travel-time or distance threshold. Proven twice
       already in the archived scripts (straight-line and network-routed
