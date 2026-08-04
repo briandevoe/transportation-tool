@@ -1,4 +1,8 @@
-# Development plan
+# Development notes
+
+Running engineering log: decisions, bugs found and fixed, and the reasoning
+behind each layer's design. Renamed from `plan.md` -- content unchanged,
+just no longer the first thing a new reader sees.
 
 ## Motivation (recorded 2026-07-24)
 
@@ -33,6 +37,14 @@ Explicit decisions, so they don't get re-litigated by accident later:
   reusable API, and has only ever been run against Massachusetts. No
   accessibility number produced by this pipeline has yet been used to
   answer a real research question end-to-end.
+
+## Known constraints worth remembering
+
+- **ACS (race/age/disability) bottoms out at block group** -- the Census
+  Bureau does not publish those breakdowns at the block level, full stop.
+  Block-level analysis will be total-population-only.
+- **ZCTAs are not zip codes** -- they're the Census Bureau's polygon
+  approximation of USPS zip codes, built from block geometry.
 
 ## Architecture decisions (settle these before/alongside layer work)
 

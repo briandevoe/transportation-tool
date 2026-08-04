@@ -17,12 +17,14 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 COI_DIR = REPO_ROOT / "data" / "layer5_reference" / "coi" / "processed"
 RUCA_DIR = REPO_ROOT / "data" / "layer5_reference" / "ruca" / "processed"
 REDLINING_DIR = REPO_ROOT / "data" / "layer5_reference" / "redlining" / "processed"
+VEHICLE_AVAILABILITY_DIR = REPO_ROOT / "data" / "layer5_reference" / "vehicle_availability" / "processed"
 
 REFERENCE_COLUMNS = [
     "coi_level_nat", "coi_score_nat", "coi_vintage",
     "metro_fips", "metro_name", "metro_type", "in_top100_metro",
     "ruca_code", "ruca_description", "ruca_vintage",
     "redlining_grade", "redlining_category", "redlining_vintage",
+    "pct_zero_vehicle_households", "total_households", "zero_vehicle_households", "vehicle_availability_vintage",
 ]
 
 
@@ -52,6 +54,15 @@ def attach_reference_attributes(df):
         redlining = pd.concat([pd.read_parquet(p) for p in redlining_paths], ignore_index=True)
         redlining = redlining[["GEOID", "redlining_grade", "redlining_category", "redlining_vintage"]]
         df = df.merge(redlining, on="GEOID", how="left")
+
+    # Per-state like redlining (built one state's ACS pull at a time), not a
+    # single national file like COI/RUCA.
+    vehicle_paths = sorted(VEHICLE_AVAILABILITY_DIR.glob("vehicle_availability_tract_*.parquet"))
+    if vehicle_paths:
+        vehicle = pd.concat([pd.read_parquet(p) for p in vehicle_paths], ignore_index=True)
+        vehicle = vehicle[["GEOID", "pct_zero_vehicle_households", "total_households",
+                            "zero_vehicle_households", "vehicle_availability_vintage"]]
+        df = df.merge(vehicle, on="GEOID", how="left")
 
     for col in REFERENCE_COLUMNS:
         if col not in df.columns:

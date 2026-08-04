@@ -26,6 +26,24 @@ TARGET_STATES = [
     ("26", "Michigan"),
     ("55", "Wisconsin"),
     ("42", "Pennsylvania"),
+    # Next batch (added 2026-07-27): largest CONUS states/regions still
+    # missing from processed coverage -- rounds out the South (TX, FL, NC),
+    # Midwest (OH), and gives the Pacific coast its first built state (WA);
+    # previously covered regions had no West Coast state at all.
+    ("48", "Texas"),
+    ("12", "Florida"),
+    ("39", "Ohio"),
+    ("37", "North Carolina"),
+    ("53", "Washington"),
+    # Next batch (added 2026-07-28): fills the three regions with zero
+    # coverage so far -- Mid-Atlantic (VA, NJ), Mountain West (AZ), and
+    # Southeast/Central interior (TN, MO) -- prioritizing populous states
+    # within each.
+    ("51", "Virginia"),
+    ("34", "New Jersey"),
+    ("04", "Arizona"),
+    ("47", "Tennessee"),
+    ("29", "Missouri"),
 ]
 # ------------------------------------------------
 

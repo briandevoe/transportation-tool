@@ -1,0 +1,63 @@
+EMILIE - TASKS FOR THIS WEEK
+Transportation Accessibility Tool
+(Updated 2026-08-03)
+
+Do these in order, 1 to 3.
+
+===============================================================
+1. CRASH / SAFETY DATA LAYER
+===============================================================
+Why: add car-crash data as a transportation-safety/burden measure.
+
+- [ ] Identify a source - start with NHTSA FARS (Fatality Analysis
+      Reporting System). Also check whether your pilot state's DOT
+      publishes its own crash data with better geocoding/completeness
+- [ ] Pull one state, one year. Load it and check native coordinates/CRS
+      and geocoding precision (lat/lon vs. address vs. route-milepost)
+- [ ] Match records to census tract GEOID - compare how
+      code/layer5_reference/03_prepare_redlining.py and
+      04_prepare_vehicle_availability.py do their tract joins and follow
+      the same approach
+- [ ] Build code/layer5_reference/05_prepare_crash_data.py following that
+      layer5 pattern: download -> standardize -> join to tract GEOID ->
+      save to processed/
+- [ ] Note any data quality issues (missing coordinates, year coverage,
+      geocoding precision) in the script docstring
+
+===============================================================
+2. TRANSIT FREQUENCY / SERVICE INTENSITY
+===============================================================
+Why: capture how often transit actually runs, not just where stops are.
+
+- [ ] Pull GTFS data for the MBTA and one comparison metro
+- [ ] Parse stop_times.txt + trips.txt to compute arrivals-per-hour (or
+      per-day) by stop_id
+- [ ] Decide how this folds into the existing schema - most likely a new
+      attribute on the transit-stop layer, alongside the stop-count logic
+      already in TRANSIT_STOP_FILTER in
+      code/analysis/05_build_simple_model.py
+- [ ] Prototype for one state and report the distribution of service
+      frequency (e.g. a histogram) - compare it to plain stop-count to
+      see how different the picture looks
+
+===============================================================
+3. SIDEWALK DATA COVERAGE CHECK
+===============================================================
+Why: figure out whether OSM's sidewalk tagging is usable at all.
+
+- [ ] Pull OSM sidewalk-related ways (highway=footway + footway=sidewalk,
+      and sidewalk=* tags on regular roads) for two states - one where
+      you'd expect dense mapping (MA) and one more rural
+- [ ] Compare total sidewalk length to total road length as a rough
+      coverage ratio
+- [ ] Spot-check a few neighborhoods you know have sidewalks to see if
+      OSM actually reflects that
+- [ ] Write up whether this is usable now, or needs a different source
+
+===============================================================
+For context before starting: code/analysis/05_build_simple_model.py and
+docs/accessibility_models.md cover the existing pipeline and what's already
+built vs. not.
+
+Questions on data-source choices? Loop in Brian before finalizing #1 or #2 -
+otherwise use your judgment.

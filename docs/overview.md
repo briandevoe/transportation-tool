@@ -1,8 +1,9 @@
-# Design reference
+# Technical overview
 
-Detail moved out of the main README to keep it focused. This is the fuller
-discussion the current architecture grew out of, kept for context and to
-revisit as each layer gets built.
+Background research the current architecture grew out of: data sources per
+layer, routing-algorithm options, and libraries considered. Renamed from
+`reference.md` -- content unchanged. Kept for context and to revisit as
+new layers or algorithms get built.
 
 ## Layer notes
 
